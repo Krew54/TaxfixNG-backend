@@ -9,13 +9,13 @@ from app.core.security import oauth_schema, SECRET_KEY, ALGORITHM
 from app.features.profile.profile_models import Users
 
 
-user_router=APIRouter(
+profile_router=APIRouter(
     prefix="/api/auth/user",
     tags=["User Authentication"]
 )
 
 
-@user_router.post('/signup', status_code=status.HTTP_201_CREATED)
+@profile_router.post('/signup', status_code=status.HTTP_201_CREATED)
 async def register_user(user: profile_schema.UserCreate, db: Session = Depends(get_db)) -> dict:
     """
     Register a new user and send an email verification OTP.
@@ -77,7 +77,7 @@ async def register_user(user: profile_schema.UserCreate, db: Session = Depends(g
     }
 
 
-@user_router.post("/email-verification", status_code=status.HTTP_200_OK)
+@profile_router.post("/email-verification", status_code=status.HTTP_200_OK)
 async def verify_user_account(otp: profile_schema.OneTimePassword, response: Response, db: Session = Depends(get_db)) -> dict:
     """
     Verify a user's account using the OTP code sent to their email.
@@ -99,7 +99,7 @@ async def verify_user_account(otp: profile_schema.OneTimePassword, response: Res
     )
     
 
-@user_router.post('/login', status_code=status.HTTP_200_OK)
+@profile_router.post('/login', status_code=status.HTTP_200_OK)
 async def user_jwt_token_authentication(credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)) -> dict:
     """
     Authenticate user and return JWT token on successful login.
@@ -119,7 +119,7 @@ async def user_jwt_token_authentication(credentials: OAuth2PasswordRequestForm =
     )
 
 
-@user_router.post("/forget-password", status_code=status.HTTP_200_OK)
+@profile_router.post("/forget-password", status_code=status.HTTP_200_OK)
 async def reset_user_password_request(req: profile_schema.ForgetPassword, db: Session = Depends(get_db)) -> dict:
     """
     Initiate password reset process by sending a reset link to the user's email.
@@ -167,7 +167,7 @@ async def reset_user_password_request(req: profile_schema.ForgetPassword, db: Se
     }
 
 
-@user_router.put("/reset-password", status_code=status.HTTP_200_OK)
+@profile_router.put("/reset-password", status_code=status.HTTP_200_OK)
 async def reset_user_password(reqBody: profile_schema.ResetPassword, db: Session = Depends(get_db)) -> dict:
     """
     Reset the user's password using the provided reset token and new password.

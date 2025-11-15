@@ -6,7 +6,6 @@ Provides helper functions for checking existence, inserting users, and creating 
 """
 
 from sqlalchemy.orm import Session
-from app.api import models, schema
 
 def check_email_exists(db: Session, email: str, model) -> object:
     """

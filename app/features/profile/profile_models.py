@@ -57,7 +57,7 @@ class Users(ResourceBase):
         date_joined (datetime): Timestamp of account creation.
     """
     __tablename__ = "users"
-    email = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False, primary_key=True)
     password = Column(EncryptedType(String, SALT), nullable=False)
     date_joined = Column(sql.TIMESTAMP(timezone=True), server_default=text('now()'))
     date_modified = Column(sql.TIMESTAMP(timezone=True), server_default=text('now()'), onupdate=text('now()'))
