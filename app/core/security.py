@@ -17,7 +17,7 @@ ALGORITHM = get_settings().jwt_algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = get_settings().jwt_access_token_expires
 
 
-oauth_schema = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+oauth_schema = OAuth2PasswordBearer(tokenUrl="/api/auth/user/login")
 
 
 def create_access_token(data: dict) -> str:
@@ -33,7 +33,6 @@ def create_access_token(data: dict) -> str:
     token_data = data.copy()
     expires = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     token_data.update({'expires': expires.isoformat()})
-    print(SECRET_KEY)
     token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
     return token
 

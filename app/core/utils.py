@@ -35,14 +35,6 @@ def send_email(subject: str, message: str, recipient: str):
       ]
     }
     result = mailjet.send.create(data=data)
-
-    # Check the response from Mailjet
-    if result.status_code == 200:
-        print("Email sent successfully!")
-        print(result.json())  # Check the response details
-    else:
-        print(f"Failed to send email. Status code: {result.status_code}")
-        print(result.json())  # Check for error messages or issues in the response
     
 
 secret = pyotp.random_base32()
