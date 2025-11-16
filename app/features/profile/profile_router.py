@@ -53,22 +53,77 @@ def create_profile(
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profile already exists")
 
-    # Build kwargs from payload but ensure we use the authenticated user's email
-    data = payload.dict(exclude={"email"}, by_alias=False)
+    # Extract tax-related inputs from payload and call compute_tax_liability
+    tax_fields = [
+        "employment_income",
+        "business_income",
+        "investment_income",
+        "other_income",
+        "chargeable_gains",
+        "exempt_income",
+        "final_wht_income",
+        "losses_allowed",
+        "capital_allowances",
+        "nhf",
+        "nhis",
+        "pension",
+        "house_loan_interest",
+        "life_insurance",
+        "annual_rent",
+    ]
 
-    data["email"] = current_user.email
-    data["estimated_tax"] = compute_tax_liability()
+    tax_args = {k: (getattr(payload, k, 0) or 0) for k in tax_fields}
+    estimated_tax = compute_tax_liability(**tax_args)
 
-    new_profile = profile_model.UserProfile(**data)
+    # Build model kwargs only with fields that exist on the UserProfile model
+    model_kwargs = {}
+    for attr in ("name","phone_no", "address", "occupation", "date_of_birth", "state_of_residence", "state_tax_authority", "NIN"):
+        val = getattr(payload, attr, None)
+        if val is not None:
+            model_kwargs[attr] = val
+
+    # Map tax/deduction inputs into model columns where appropriate
+    # total income: sum primary income sources if provided
+    total_income = 0
+    for src in ("employment_income", "business_income", "investment_income", "other_income", "chargeable_gains"):
+        total_income += (getattr(payload, src, 0) or 0)
+    if total_income > 0:
+        model_kwargs["income"] = total_income
+
+    # map pension, nhf, nhis, life insurance, rent and loan interest into model fields
+    if getattr(payload, "pension", None) is not None:
+        model_kwargs["pension_contribution"] = payload.pension
+    if getattr(payload, "nhf", None) is not None:
+        model_kwargs["national_housing_fund"] = payload.nhf
+    if getattr(payload, "nhis", None) is not None:
+        model_kwargs["National_health_insurance_scheme"] = payload.nhis
+    if getattr(payload, "life_insurance", None) is not None:
+        model_kwargs["life_insurance_premium"] = payload.life_insurance
+    if getattr(payload, "annual_rent", None) is not None:
+        model_kwargs["house_rent"] = payload.annual_rent
+    if getattr(payload, "house_loan_interest", None) is not None:
+        model_kwargs["mortgage_interest"] = payload.house_loan_interest
+
+    # ensure email is set from the authenticated user
+    model_kwargs["email"] = current_user.email
+    model_kwargs["estimated_tax"] = estimated_tax
+
+    new_profile = profile_model.UserProfile(**model_kwargs)
     db.add(new_profile)
     db.commit()
     db.refresh(new_profile)
+    # attach estimated tax to the returned object (not persisted)
+    try:
+        setattr(new_profile, "estimated_tax", float(estimated_tax))
+    except Exception:
+        # ignore if conversion fails
+        setattr(new_profile, "estimated_tax", None)
     return new_profile
 
 
 @profile_router.patch("/", response_model=profile_schema.ProfileOut)
 def update_profile(
-    payload: profile_schema.ProfileUpdate,
+    payload: profile_schema.ProfileBase,
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -79,10 +134,7 @@ def update_profile(
 
     updates = payload.dict(exclude_unset=True, by_alias=False)
     for key, value in updates.items():
-        if key == "name":
-            setattr(profile, "Name", value)
-        else:
-            setattr(profile, key, value)
+        setattr(profile, key, value)
 
     db.add(profile)
     db.commit()
@@ -170,7 +222,7 @@ def compute_tax_liability(
     tax += band * 0.15
     remaining -= band
     if remaining <= 0:
-        return tax, chargeable_income, total_income, eligible_deductions
+        return tax
 
     # Band 3: Next ₦9,000,000 at 18%
     band = min(remaining, 9000000)
