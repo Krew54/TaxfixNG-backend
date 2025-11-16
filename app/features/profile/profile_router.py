@@ -1,195 +1,24 @@
 from fastapi import APIRouter, Depends, status, HTTPException, Response
 from app.core.database import get_db
 from sqlalchemy.orm import Session
-from app.features.profile import profile_models, profile_schema
-from app.core import sql_query, security, utils
-from fastapi.security import OAuth2PasswordRequestForm
+from app.features.profile import profile_model, profile_schema
+from app.features.user.user_models import Users
 from jose import JWTError, jwt
 from app.core.security import oauth_schema, SECRET_KEY, ALGORITHM
-from app.features.profile.profile_models import Users
+from typing import Any
 
 
-profile_router=APIRouter(
-    prefix="/api/auth/user",
-    tags=["User profile and Authentication"]
+profile_router = APIRouter(
+    prefix="/api/auth/profile",
+    tags=["Profile Management"],
 )
 
 
-@profile_router.post('/signup', status_code=status.HTTP_201_CREATED)
-async def register_user(user: profile_schema.UserCreate, db: Session = Depends(get_db)) -> dict:
-    """
-    Register a new user and send an email verification OTP.
-
-    Args:
-        user (schema.UserCreate): The user registration data.
-        db (Session): SQLAlchemy database session dependency.
-
-    Raises:
-        HTTPException: If email or username is already taken.
-
-    Returns:
-        dict: Success message indicating account creation and email verification required.
-    """
-
-    #check if email already exists
-    eresult = sql_query.check_email_exists(db=db, email=user.email, model=profile_models.Users)
-
-    if eresult:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="email already taken")
-
-    # Create a new user
-    user = sql_query.insert_new_user(db=db, model=profile_models.Users, kwargs=user.dict())
-
-    # Generate OTP
-    otpcode = utils.generate_otp_code()
-
-    otp_data = profile_schema.OTPData(
-    code=otpcode,
-    email=user.email
-    )
-
-    message ="""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-                <meta charset="UTF-8">
-                <meta http-equiv="X-UA-Compatible" content="IE=edge">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Document</title>
-        </head>
-        <body>
-            <div style="width: 100%; font-size: 16px; margin-top: 20px; text-align: center;">
-                <h1>Email verification</h1>
-                <p>Thank you for being part of TaxFix NG. Please verifiy your email {0}. using the below token:</p>
-                <p>{1}</P>
-                <p>Thank you once again for joining our community.</p>
-            </div>
-        </body>
-        </html>
-    """.format(user.email, otpcode)
-
-    utils.send_email(subject="Account verification", message=message, recipient=user.email)
-
-    sql_query.create_otp(db=db, model=profile_models.UserOneTimePassword, kwargs=otp_data.dict())
-
-    return {
-        "message": "Account created successfully please verify your email."
-    }
-
-
-@profile_router.post("/email-verification", status_code=status.HTTP_200_OK)
-async def verify_user_account(otp: profile_schema.OneTimePassword, response: Response, db: Session = Depends(get_db)) -> dict:
-    """
-    Verify a user's account using the OTP code sent to their email.
-
-    Args:
-        otp (schema.OneTimePassword): The OTP data for verification.
-        response (Response): FastAPI response object.
-        db (Session): SQLAlchemy database session dependency.
-
-    Returns:
-        dict: Result of the verification process.
-    """
-    return utils.create_verify_account(
-        db=db,
-        model_otp=profile_models.UserOneTimePassword,
-        model=profile_models.Users,
-        response=response,
-        kwargs=otp.dict()
-    )
-    
-
-@profile_router.post('/login', status_code=status.HTTP_200_OK)
-async def user_jwt_token_authentication(credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)) -> dict:
-    """
-    Authenticate user and return JWT token on successful login.
-
-    Args:
-        credentials (OAuth2PasswordRequestForm): User login credentials (username/email and password).
-        db (Session): SQLAlchemy database session dependency.
-
-    Returns:
-        dict: JWT token and user information if authentication is successful.
-    """
-    return utils.create_login(
-        db=db,
-        model=profile_models.Users,
-        email=credentials.username,
-        password=credentials.password
-    )
-
-
-@profile_router.post("/forget-password", status_code=status.HTTP_200_OK)
-async def reset_user_password_request(req: profile_schema.ForgetPassword, db: Session = Depends(get_db)) -> dict:
-    """
-    Initiate password reset process by sending a reset link to the user's email.
-
-    Args:
-        req (schema.ForgetPassword): The request containing the user's email.
-        db (Session): SQLAlchemy database session dependency.
-
-    Returns:
-        dict: Message indicating that the reset email has been sent.
-    """
-    user = sql_query.check_email_exists(db=db, email=req.email, model=profile_models.Users)
-
-    if not user:
-        return Response(content="An email to reset your password has been sent", status_code=status.HTTP_404_NOT_FOUND)
-
-    token = security.create_access_token(data={"email": user.email})
-    subject = "Password reset request"
-    recipient = user.email
-    message = """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-                <meta charset="UTF-8">
-                <meta http-equiv="X-UA-Compatible" content="IE=edge">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Document</title>
-        </head>
-        <body>
-            <div style="width: 100%; font-size: 16px; margin-top: 20px; text-align: center;">
-                <h1>Password Reset</h1>
-                <p>Someone has requested a password reset with your email {0}. If this is correct, please click the link below to reset your password:</p>
-                <a href="http://127.0.0.1:8000/api/reset-password?reset-token={1}">Reset Password</a>
-                <p>If you didn't request this, you can ignore this email.</p>
-                <p>Your password won't change until you access the link above.</p>
-            </div>
-        </body>
-        </html>
-    """.format(user.email, token)
-
-    utils.send_email(subject=subject, message=message, recipient=recipient)
-
-    return {
-        "message": "email to reset your password has been been sent"
-    }
-
-
-@profile_router.put("/reset-password", status_code=status.HTTP_200_OK)
-async def reset_user_password(reqBody: profile_schema.ResetPassword, db: Session = Depends(get_db)) -> dict:
-    """
-    Reset the user's password using the provided reset token and new password.
-
-    Args:
-        reqBody (schema.ResetPassword): The request body containing the reset token and new password.
-        db (Session): SQLAlchemy database session dependency.
-
-    Returns:
-        dict: Result of the password reset operation.
-    """
-    return utils.reset_password(
-        db=db,
-        model=profile_models.Users,
-        kwargs=reqBody.dict()
-    )
-
-
 def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):
+    """Dependency that decodes the bearer token and returns the Users model instance."""
     try:
         payload = jwt.decode(bearer_token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: int = payload.get("email")
+        email: str | None = payload.get("email")
         if email is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
@@ -199,3 +28,172 @@ def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = De
         return user
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+
+@profile_router.get("/my_profile", response_model=profile_schema.ProfileOut)
+def get_my_profile(current_user: Users = Depends(get_current_user), db: Session = Depends(get_db)) -> Any:
+    """Retrieve the profile for the currently authenticated user."""
+    profile = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+    return profile
+
+
+@profile_router.post("/", response_model=profile_schema.ProfileOut, status_code=status.HTTP_201_CREATED)
+def create_profile(
+    payload: profile_schema.ProfileBase,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    """Create a profile for the logged-in user. The email from the token is used.
+
+    If a profile already exists for the user, a 400 is returned.
+    """
+    existing = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profile already exists")
+
+    # Build kwargs from payload but ensure we use the authenticated user's email
+    data = payload.dict(exclude={"email"}, by_alias=False)
+
+    data["email"] = current_user.email
+    data["estimated_tax"] = compute_tax_liability()
+
+    new_profile = profile_model.UserProfile(**data)
+    db.add(new_profile)
+    db.commit()
+    db.refresh(new_profile)
+    return new_profile
+
+
+@profile_router.patch("/", response_model=profile_schema.ProfileOut)
+def update_profile(
+    payload: profile_schema.ProfileUpdate,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    """Update fields on the current user's profile. Only provided fields are changed."""
+    profile = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+
+    updates = payload.dict(exclude_unset=True, by_alias=False)
+    for key, value in updates.items():
+        if key == "name":
+            setattr(profile, "Name", value)
+        else:
+            setattr(profile, key, value)
+
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
+@profile_router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+def delete_profile(current_user: Users = Depends(get_current_user), db: Session = Depends(get_db)) -> Response:
+    """Delete the profile belonging to the current user."""
+    profile = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+
+    db.delete(profile)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def compute_tax_liability(
+    employment_income: float = 0,
+    business_income: float = 0,
+    investment_income: float = 0,
+    other_income: float = 0,
+    chargeable_gains: float = 0,
+    exempt_income: float = 0,
+    final_wht_income: float = 0,
+    losses_allowed: float = 0,
+    capital_allowances: float = 0,
+    nhf: float = 0,
+    nhis: float = 0,
+    pension: float = 0,
+    house_loan_interest: float = 0,
+    life_insurance: float = 0,
+    annual_rent: float = 0
+):
+    """
+    Compute Personal Income Tax (PIT) based on Nigeria Tax Act 2025.
+    """
+
+    # 1. TOTAL INCOME (Section 28)
+    total_income = (
+        employment_income +
+        business_income +
+        investment_income +
+        other_income +
+        chargeable_gains -
+        exempt_income -
+        final_wht_income -
+        losses_allowed -
+        capital_allowances
+    )
+
+    if total_income < 0:
+        total_income = 0
+
+    # 2. Eligible Deductions (Section 30)
+    rent_relief = min(0.20 * annual_rent, 500000)
+
+    eligible_deductions = (
+        nhf +
+        nhis +
+        pension +
+        house_loan_interest +
+        life_insurance +
+        rent_relief
+    )
+
+    # 3. Chargeable Income
+    chargeable_income = max(total_income - eligible_deductions, 0)
+
+    # 4. Apply Progressive Tax (Fourth Schedule)
+    tax = 0
+    remaining = chargeable_income
+
+    # Band 1: First ₦800,000 at 0%
+    band = min(remaining, 800000)
+    tax += band * 0
+    remaining -= band
+    if remaining <= 0:
+        return tax
+
+    # Band 2: Next ₦2,200,000 at 15%
+    band = min(remaining, 2200000)
+    tax += band * 0.15
+    remaining -= band
+    if remaining <= 0:
+        return tax, chargeable_income, total_income, eligible_deductions
+
+    # Band 3: Next ₦9,000,000 at 18%
+    band = min(remaining, 9000000)
+    tax += band * 0.18
+    remaining -= band
+    if remaining <= 0:
+        return tax
+
+    # Band 4: Next ₦13,000,000 at 21%
+    band = min(remaining, 13000000)
+    tax += band * 0.21
+    remaining -= band
+    if remaining <= 0:
+        return tax
+
+    # Band 5: Next ₦25,000,000 at 23%
+    band = min(remaining, 25000000)
+    tax += band * 0.23
+    remaining -= band
+    if remaining <= 0:
+        return tax
+
+    # Band 6: Above ₦50,000,000 at 25%
+    tax += remaining * 0.25
+
+    return tax

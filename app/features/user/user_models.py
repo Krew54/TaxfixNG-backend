@@ -4,6 +4,7 @@ from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.sql.expression import text
 from sqlalchemy_utils.types.encrypted.encrypted_type import EncryptedType
 from app.core.config import get_settings, Base
+from sqlalchemy.orm import relationship
 
 import pandas as pd
 
@@ -53,6 +54,13 @@ class Users(ResourceBase):
     date_joined = Column(sql.TIMESTAMP(timezone=True), server_default=text('now()'))
     date_modified = Column(sql.TIMESTAMP(timezone=True), server_default=text('now()'), onupdate=text('now()'))
 
+    # One-to-one relationship
+    profile = relationship(
+        "UserProfile",
+        back_populates="user",
+        uselist=False,     # Ensures one-to-one
+        cascade="all, delete"
+    )
 
 class UserOneTimePassword(Base):
     """

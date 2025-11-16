@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, status, HTTPException, Response
 from app.core.database import get_db
 from sqlalchemy.orm import Session
+from app.features.user import user_models, user_schema
+from app.core import sql_query, security, utils
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from app.core.security import oauth_schema, SECRET_KEY, ALGORITHM
-from app.features.profile.profile_models import Users
-from app.features.profile import profile_schema
-from app.core import sql_query, security, utils
-from app.features.profile import profile_models
+from app.features.user.user_models import Users
 
 
 user_router=APIRouter(
@@ -17,7 +16,7 @@ user_router=APIRouter(
 
 
 @user_router.post('/signup', status_code=status.HTTP_201_CREATED)
-async def register_user(user: profile_schema.UserCreate, db: Session = Depends(get_db)) -> dict:
+async def register_user(user: user_schema.UserCreate, db: Session = Depends(get_db)) -> dict:
     """
     Register a new user and send an email verification OTP.
 
@@ -33,21 +32,18 @@ async def register_user(user: profile_schema.UserCreate, db: Session = Depends(g
     """
 
     #check if email already exists
-    eresult = sql_query.check_email_exists(db=db, 
-                                           email=user.email, 
-                                           model=profile_models.Users
-                                           )
+    eresult = sql_query.check_email_exists(db=db, email=user.email, model=user_models.Users)
 
     if eresult:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="email already taken")
 
     # Create a new user
-    user = sql_query.insert_new_user(db=db, model=profile_models.Users, kwargs=user.dict())
+    user = sql_query.insert_new_user(db=db, model=user_models.Users, kwargs=user.dict())
 
     # Generate OTP
     otpcode = utils.generate_otp_code()
 
-    otp_data = profile_schema.OTPData(
+    otp_data = user_schema.OTPData(
     code=otpcode,
     email=user.email
     )
@@ -64,7 +60,7 @@ async def register_user(user: profile_schema.UserCreate, db: Session = Depends(g
         <body>
             <div style="width: 100%; font-size: 16px; margin-top: 20px; text-align: center;">
                 <h1>Email verification</h1>
-                <p>Thank you for being part of taxfix NG. Please verifiy your email {0}. using the below token:</p>
+                <p>Thank you for being part of TaxFix NG. Please verifiy your email {0}. using the below token:</p>
                 <p>{1}</P>
                 <p>Thank you once again for joining our community.</p>
             </div>
@@ -74,7 +70,7 @@ async def register_user(user: profile_schema.UserCreate, db: Session = Depends(g
 
     utils.send_email(subject="Account verification", message=message, recipient=user.email)
 
-    sql_query.create_otp(db=db, model=profile_models.UserOneTimePassword, kwargs=otp_data.dict())
+    sql_query.create_otp(db=db, model=user_models.UserOneTimePassword, kwargs=otp_data.dict())
 
     return {
         "message": "Account created successfully please verify your email."
@@ -82,7 +78,7 @@ async def register_user(user: profile_schema.UserCreate, db: Session = Depends(g
 
 
 @user_router.post("/email-verification", status_code=status.HTTP_200_OK)
-async def verify_user_account(otp: profile_schema.OneTimePassword, response: Response, db: Session = Depends(get_db)) -> dict:
+async def verify_user_account(otp: user_schema.OneTimePassword, response: Response, db: Session = Depends(get_db)) -> dict:
     """
     Verify a user's account using the OTP code sent to their email.
 
@@ -96,8 +92,8 @@ async def verify_user_account(otp: profile_schema.OneTimePassword, response: Res
     """
     return utils.create_verify_account(
         db=db,
-        model_otp=profile_models.UserOneTimePassword,
-        model=profile_models.Users,
+        model_otp=user_models.UserOneTimePassword,
+        model=user_models.Users,
         response=response,
         kwargs=otp.dict()
     )
@@ -117,14 +113,14 @@ async def user_jwt_token_authentication(credentials: OAuth2PasswordRequestForm =
     """
     return utils.create_login(
         db=db,
-        model=profile_models.Users,
+        model=user_models.Users,
         email=credentials.username,
         password=credentials.password
     )
 
 
 @user_router.post("/forget-password", status_code=status.HTTP_200_OK)
-async def reset_user_password_request(req: profile_schema.ForgetPassword, db: Session = Depends(get_db)) -> dict:
+async def reset_user_password_request(req: user_schema.ForgetPassword, db: Session = Depends(get_db)) -> dict:
     """
     Initiate password reset process by sending a reset link to the user's email.
 
@@ -135,7 +131,7 @@ async def reset_user_password_request(req: profile_schema.ForgetPassword, db: Se
     Returns:
         dict: Message indicating that the reset email has been sent.
     """
-    user = sql_query.check_email_exists(db=db, email=req.email, model=profile_models.Users)
+    user = sql_query.check_email_exists(db=db, email=req.email, model=user_models.Users)
 
     if not user:
         return Response(content="An email to reset your password has been sent", status_code=status.HTTP_404_NOT_FOUND)
@@ -172,7 +168,7 @@ async def reset_user_password_request(req: profile_schema.ForgetPassword, db: Se
 
 
 @user_router.put("/reset-password", status_code=status.HTTP_200_OK)
-async def reset_user_password(reqBody: profile_schema.ResetPassword, db: Session = Depends(get_db)) -> dict:
+async def reset_user_password(reqBody: user_schema.ResetPassword, db: Session = Depends(get_db)) -> dict:
     """
     Reset the user's password using the provided reset token and new password.
 
@@ -185,7 +181,7 @@ async def reset_user_password(reqBody: profile_schema.ResetPassword, db: Session
     """
     return utils.reset_password(
         db=db,
-        model=profile_models.Users,
+        model=user_models.Users,
         kwargs=reqBody.dict()
     )
 
@@ -193,7 +189,7 @@ async def reset_user_password(reqBody: profile_schema.ResetPassword, db: Session
 def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(bearer_token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("email")
+        email: int = payload.get("email")
         if email is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 

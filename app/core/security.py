@@ -10,7 +10,7 @@ from jose import JWSError, jwt
 from fastapi import status, HTTPException, Depends
 from app.core.config import get_settings
 from datetime import datetime, timedelta
-from app.features.profile import profile_schema
+from app.features.user import user_schema
 
 SECRET_KEY: str = get_settings().jwt_secret_key
 ALGORITHM = get_settings().jwt_algorithm
@@ -60,7 +60,7 @@ def verify_access_token(token: str, credentials_exception: Exception, schema_mod
         if id is None:
             raise credentials_exception
 
-        if isinstance(schema_model, profile_schema.TokenData):
+        if isinstance(schema_model, user_schema.TokenData):
             token_data = schema_model(user_id=id)
 
     except JWSError:
@@ -112,7 +112,7 @@ def decode_token(token: str, schema_model) -> object:
         if not email:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid token or token expired")
 
-        if isinstance(schema_model, profile_schema.UserCreate):
+        if isinstance(schema_model, user_schema.UserCreate):
             token_data = schema_model(email=email)
     except JWSError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid token or token expired")

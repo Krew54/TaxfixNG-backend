@@ -1,14 +1,14 @@
 from app.core.config import get_settings
 import pyotp
 from mailjet_rest import Client
-from app.features.profile import profile_models
+from app.features.user import user_models
 from sqlalchemy.orm import Session
 from jose import JWSError
 from app.core import security
 from app.core.database import get_db
 from fastapi import HTTPException, Depends, status, Response
 from app.core import sql_query
-from typing import List
+
 
 api_key = get_settings().mail_jet_api_key
 api_secret = get_settings().mail_jet_api_secret_key
