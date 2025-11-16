@@ -38,8 +38,7 @@ class ProfileBase(BaseModel):
 	annual_rent: Optional[float] = 0.0
 
 	class Config:
-		orm_mode = True
-		allow_population_by_field_name = True
+		populate_by_name = True
 		from_attributes = True
 
 
@@ -51,7 +50,6 @@ class ProfileOut(ProfileBase):
 	estimated_tax: Optional[float] = None
 
 	class Config:
-		orm_mode = True
-		allow_population_by_field_name = True
+		populate_by_name = True
 		from_attributes = True
 

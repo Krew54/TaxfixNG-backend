@@ -1,6 +1,6 @@
 import sqlalchemy as sql
 from sqlalchemy import ForeignKey
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, String
 from sqlalchemy.sql.expression import text
 from app.core.config import get_settings, Base
 from sqlalchemy.orm import relationship
@@ -80,16 +80,16 @@ class UserProfile(ResourceBase):
     employment_income = Column(sql.Float, nullable=True)
     business_income = Column(sql.Float, nullable=True)
     other_income = Column(sql.Float, nullable=True)
-    chargable_gains = Column(sql.Float, nullable=True)
+    chargeable_gains = Column(sql.Float, nullable=True)
     pension_contribution = Column(sql.Float, nullable=True)
     national_housing_fund = Column(sql.Float, nullable=True)
     National_health_insurance_scheme = Column(sql.Float, nullable=True)
     life_insurance_premium = Column(sql.Float, nullable=True)
     house_rent = Column(sql.Float, nullable=True)
     mortgage_interest = Column(sql.Float, nullable=True)
-    losses_allowable = Column(sql.Float, nullable=True)
-    capital_allowance = Column(sql.Float, nullable=True)
-    estimated_tax: sql.Float = Column(sql.Float, nullable=True)
+    losses_allowed = Column(sql.Float, nullable=True)
+    capital_allowances = Column(sql.Float, nullable=True)
+    estimated_tax = Column(sql.Float, nullable=True)
 
     date_created = Column(sql.TIMESTAMP(timezone=True), server_default=text('now()'))
     date_modified = Column(sql.TIMESTAMP(timezone=True), server_default=text('now()'), onupdate=text('now()'))
