@@ -137,6 +137,10 @@ async def reset_user_password_request(req: user_schema.ForgetPassword, db: Sessi
         return Response(content="An email to reset your password has been sent", status_code=status.HTTP_404_NOT_FOUND)
 
     token = security.create_access_token(data={"email": user.email})
+    otp_data = user_schema.OTPData(
+    code=token,
+    email=user.email
+    )
     subject = "Password reset request"
     recipient = user.email
     message = """
@@ -151,16 +155,17 @@ async def reset_user_password_request(req: user_schema.ForgetPassword, db: Sessi
         <body>
             <div style="width: 100%; font-size: 16px; margin-top: 20px; text-align: center;">
                 <h1>Password Reset</h1>
-                <p>Someone has requested a password reset with your email {0}. If this is correct, please click the link below to reset your password:</p>
-                <a href="http://127.0.0.1:8000/api/reset-password?reset-token={1}">Reset Password</a>
+                <p>You have requested a password reset with your email {0}. If this is correct, please use the otp below to reset your password:</p>
+                <p>{1}</p>
                 <p>If you didn't request this, you can ignore this email.</p>
-                <p>Your password won't change until you access the link above.</p>
+                <p>Your password won't change until you use the OTP above.</p>
             </div>
         </body>
         </html>
     """.format(user.email, token)
 
     utils.send_email(subject=subject, message=message, recipient=recipient)
+    sql_query.create_otp(db=db, model=user_models.UserOneTimePassword, kwargs=otp_data.dict())
 
     return {
         "message": "email to reset your password has been been sent"
@@ -184,6 +189,47 @@ async def reset_user_password(reqBody: user_schema.ResetPassword, db: Session = 
         model=user_models.Users,
         kwargs=reqBody.dict()
     )
+
+
+@user_router.post("/update-password-with-otp", status_code=status.HTTP_200_OK)
+async def update_password_with_otp(req: user_schema.PasswordUpdateWithOTP, db: Session = Depends(get_db)) -> dict:
+    """
+    Update a user's password by validating the most recent OTP for the provided email.
+
+    Flow:
+    - Fetch the user by email. If not found, return 404.
+    - Fetch the most recent OTP record for that email (ordered by created_at desc).
+    - Verify OTP exists, is still valid, and matches the provided code.
+    - Update the user's password and mark the OTP record as invalid.
+    """
+    # Ensure user exists
+    user = sql_query.check_email_exists(db=db, email=req.email, model=user_models.Users)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # Get the most recent OTP for this email
+    otp_record = (
+        db.query(user_models.UserOneTimePassword)
+        .filter(user_models.UserOneTimePassword.email == req.email)
+        .order_by(user_models.UserOneTimePassword.created_at.desc())
+        .first()
+    )
+
+    if not otp_record or not otp_record.is_valid or otp_record.code != req.otp:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OTP")
+
+    # Update password and invalidate OTP in a single transaction
+    try:
+        # Assigning the plain password will be handled by EncryptedType on commit
+        user.password = req.new_password
+        otp_record.is_valid = False
+        db.add(user)
+        db.add(otp_record)
+        db.commit()
+        return {"message": "Password updated successfully"}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not update password")
 
 
 def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):

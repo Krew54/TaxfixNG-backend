@@ -44,3 +44,12 @@ class ResetPassword(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PasswordUpdateWithOTP(BaseModel):
+    email: EmailStr
+    new_password: str
+    otp: str
+
+    class Config:
+        from_attributes = True

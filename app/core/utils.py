@@ -60,7 +60,7 @@ def reset_password(model, kwargs, db:Session=Depends(get_db)):
     try:
         response = security.decode_token(token=kwargs.get("token"), schema_model=kwargs)
 
-        qs = db.query(model).filter(model.id == response.user_id)
+        qs = db.query(model).filter(model.email == response.email)
 
         if not qs.first():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
