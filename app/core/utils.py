@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from app.core.config import get_settings
 import pyotp
 from mailjet_rest import Client
@@ -100,7 +101,7 @@ def create_verify_account(db: Session, model_otp, model, response: Response, kwa
     db.query(model_otp)
     .filter(
         model_otp.code == kwargs.get('code'),
-        model_otp.email == kwargs.get('email')
+        func.lower(model_otp.email) == kwargs.get('email').lower()
         )
     )
     otp = otp_qs.first()
