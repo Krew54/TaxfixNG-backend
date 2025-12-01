@@ -20,7 +20,7 @@ settings = get_settings()
 # Load AWS S3 configuration from env
 AWS_ACCESS_KEY = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = os.environ.get("AWS_REGION") or "us-east-1"
+AWS_REGION = os.environ.get("AWS_REGION") or "eu-north-1"
 S3_BUCKET = os.environ.get("AWS_S3_BUCKET")
 
 
