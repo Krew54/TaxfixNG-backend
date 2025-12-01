@@ -9,6 +9,7 @@ from app.core import security
 from app.core.database import get_db
 from fastapi import HTTPException, Depends, status, Response
 from app.core import sql_query
+from app.features.user import user_schema
 
 
 api_key = get_settings().mail_jet_api_key
@@ -86,7 +87,40 @@ def create_login(model, email, password, db:Session):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     
     if not user.is_verified:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is not verified")
+        # generate OTP, email to user, and persist OTP record
+        try:
+
+            otpcode = generate_otp_code()
+            otp_data = user_schema.OTPData(code=otpcode, email=user.email)
+
+            message = (
+                """
+                <!DOCTYPE html>
+                <html lang=\"en\">
+                <head>
+                        <meta charset=\"UTF-8\">
+                        <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">
+                        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+                        <title>Account verification</title>
+                </head>
+                <body>
+                    <div style=\"width:100%; font-size:16px; margin-top:20px; text-align:center;\">
+                        <h1>Account verification</h1>
+                        <p>Please verify your email {0} by using the token below:</p>
+                        <p>{1}</p>
+                    </div>
+                </body>
+                </html>
+                """.format(user.email, otpcode)
+            )
+
+            send_email(subject="Account verification", message=message, recipient=user.email)
+            sql_query.create_otp(db=db, model=user_models.UserOneTimePassword, kwargs=otp_data.dict())
+        except Exception:
+            # if email sending/creation fails, fall through to raise verification error
+            pass
+
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is not verified. A verification OTP has been sent to your email.")
     
     access_token = security.create_access_token(data={"email": user.email})
 
