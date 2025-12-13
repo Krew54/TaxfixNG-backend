@@ -72,7 +72,7 @@ class UserProfile(ResourceBase):
     name = Column(String, nullable=False)
     phone_no = Column(String, nullable=True)
     address = Column(String, nullable=True)
-    occupation = Column(String, nullable=True)
+    employment_type = Column(String, nullable=True)
     date_of_birth = Column(String, nullable=True)
     state_of_residence = Column(String, nullable=True)
     state_tax_authority = Column(String, nullable=True)
