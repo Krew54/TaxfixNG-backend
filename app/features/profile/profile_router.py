@@ -226,7 +226,7 @@ def delete_profile(current_user: Users = Depends(get_current_user), db: Session 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@profile_router.get("/estimate_tax")
+@profile_router.post("/estimate_tax")
 def estimate_tax(
     employment_income: float = 0,
     business_income: float = 0,
