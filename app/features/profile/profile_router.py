@@ -3,10 +3,9 @@ from app.core.database import get_db
 from sqlalchemy.orm import Session
 from app.features.profile import profile_model, profile_schema
 from app.features.user.user_models import Users
-from jose import JWTError, jwt
-from app.core.security import oauth_schema, SECRET_KEY, ALGORITHM
 from typing import Any
 from starlette.concurrency import run_in_threadpool
+from app.core.utils import get_current_user
 
 
 profile_router = APIRouter(
@@ -107,23 +106,6 @@ def compute_tax_liability(
     tax += remaining * 0.25
 
     return tax
-
-
-def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):
-    """Dependency that decodes the bearer token and returns the Users model instance."""
-    try:
-        payload = jwt.decode(bearer_token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str | None = payload.get("email")
-        if email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-        user = db.query(Users).filter(Users.email == email).first()
-        if not user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        return user
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
 
 @profile_router.get("/my_profile", response_model=profile_schema.ProfileOut)
 async def get_my_profile(current_user: Users = Depends(get_current_user), db: Session = Depends(get_db)) -> Any:

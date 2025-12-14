@@ -10,6 +10,9 @@ from app.core.database import get_db
 from fastapi import HTTPException, Depends, status, Response
 from app.core import sql_query
 from app.features.user import user_schema
+from jose import JWTError, jwt
+from app.core.security import oauth_schema, SECRET_KEY, ALGORITHM
+from app.features.user.user_models import Users
 
 
 api_key = get_settings().mail_jet_api_key
@@ -159,4 +162,20 @@ def create_verify_account(db: Session, model_otp, model, response: Response, kwa
     else:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message": "Invalid OTP"}
+    
+
+def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(bearer_token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("email")
+        if email is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+        user = db.query(Users).filter(Users.email == email).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        return user
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
     

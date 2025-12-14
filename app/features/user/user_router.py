@@ -2,32 +2,16 @@ from fastapi import APIRouter, Depends, status, HTTPException, Response
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from app.features.user import user_models, user_schema
-from app.core import sql_query, security, utils
+from app.core import sql_query, utils
 from fastapi.security import OAuth2PasswordRequestForm
-from jose import JWTError, jwt
-from app.core.security import oauth_schema, SECRET_KEY, ALGORITHM
 from app.features.user.user_models import Users
+from app.core.utils import get_current_user
 
 
 user_router=APIRouter(
     prefix="/api/auth/user",
     tags=["User Authentication"]
 )
-
-def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(bearer_token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: int = payload.get("email")
-        if email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-        user = db.query(Users).filter(Users.email == email).first()
-        if not user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        return user
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
 
 @user_router.post('/signup', status_code=status.HTTP_201_CREATED)
 async def register_user(user: user_schema.UserCreate, db: Session = Depends(get_db)) -> dict:

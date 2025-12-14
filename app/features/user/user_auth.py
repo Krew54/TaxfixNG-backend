@@ -2,9 +2,6 @@ from fastapi import APIRouter, Depends, status, HTTPException, Response
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
-from jose import JWTError, jwt
-from app.core.security import oauth_schema, SECRET_KEY, ALGORITHM
-from app.features.user.user_models import Users
 from app.features.user import user_schema
 from app.core import sql_query, security, utils
 from app.features.user import user_models
@@ -188,18 +185,3 @@ async def reset_user_password(reqBody: user_schema.ResetPassword, db: Session = 
         model=user_models.Users,
         kwargs=reqBody.dict()
     )
-
-
-def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(bearer_token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("email")
-        if email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-        user = db.query(Users).filter(Users.email == email).first()
-        if not user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        return user
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")

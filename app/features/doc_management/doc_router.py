@@ -11,8 +11,7 @@ from app.core.database import get_db
 from app.core.config import get_settings
 from app.features.user.user_models import Users
 from app.features.doc_management import doc_models, doc_schemas
-from jose import JWTError, jwt
-from app.core.security import oauth_schema, SECRET_KEY, ALGORITHM
+from app.core.utils import get_current_user
 
 
 settings = get_settings()
@@ -57,21 +56,6 @@ def upload_file_to_s3(file: UploadFile, key: str) -> str:
 
 
 doc_router = APIRouter(prefix="/documents", tags=["Document Management"])
-
-
-def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)) -> Users:
-    try:
-        payload = jwt.decode(bearer_token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str | None = payload.get("email")
-        if email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-        user = db.query(Users).filter(Users.email == email).first()
-        if not user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        return user
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
 @doc_router.post("/upload", response_model=doc_schemas.DocumentOut, status_code=status.HTTP_201_CREATED)
