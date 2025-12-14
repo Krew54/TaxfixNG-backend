@@ -13,6 +13,7 @@ from app.features.user import user_schema
 from jose import JWTError, jwt
 from app.core.security import oauth_schema, SECRET_KEY, ALGORITHM
 from app.features.user.user_models import Users
+from starlette.concurrency import run_in_threadpool
 
 
 api_key = get_settings().mail_jet_api_key
@@ -164,14 +165,18 @@ def create_verify_account(db: Session, model_otp, model, response: Response, kwa
         return {"message": "Invalid OTP"}
     
 
-def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):
+async def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(bearer_token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("email")
         if email is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-        user = db.query(Users).filter(Users.email == email).first()
+        def _get_user():
+            return db.query(Users).filter(Users.email == email).first()
+
+        user = await run_in_threadpool(_get_user)
+        
         if not user:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
         return user
