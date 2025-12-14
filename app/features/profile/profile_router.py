@@ -18,7 +18,6 @@ def compute_tax_liability(
     business_income: float = 0,
     other_income: float = 0,
     chargeable_gains: float = 0,
-    final_wht_income: float = 0,
     losses_allowed: float = 0,
     capital_allowances: float = 0,
     national_housing_fund: float = 0,
@@ -39,7 +38,6 @@ def compute_tax_liability(
         business_income +
         other_income +
         chargeable_gains -
-        final_wht_income -
         losses_allowed -
         capital_allowances
     )
@@ -245,19 +243,19 @@ def estimate_tax(
     """Estimate tax liability based on provided financial inputs."""
     # compute estimated tax after applying deductions (existing logic)
     estimated_tax = compute_tax_liability(
-        employment_income,
-        business_income,
-        other_income,
-        chargeable_gains,
-        losses_allowed,
-        capital_allowances,
-        national_housing_fund,
-        National_health_insurance_scheme,
-        pension_contribution,
-        mortgage_interest,
-        life_insurance_premium,
-        house_rent,
-        period
+        employment_income=employment_income,
+        business_income=business_income,
+        other_income=other_income,
+        chargeable_gains=chargeable_gains,
+        losses_allowed=losses_allowed,
+        capital_allowances=capital_allowances,
+        national_housing_fund=national_housing_fund,
+        National_health_insurance_scheme=National_health_insurance_scheme,
+        pension_contribution=pension_contribution,
+        mortgage_interest=mortgage_interest,
+        life_insurance_premium=life_insurance_premium,
+        house_rent=house_rent,
+        period=period,
     )
 
     # 1. Total income (before eligible deductions) using same formula as compute_tax_liability
