@@ -266,7 +266,6 @@ def estimate_tax(
         + business_income
         + other_income
         + chargeable_gains
-        - final_wht_income
         - losses_allowed
         - capital_allowances
     )
