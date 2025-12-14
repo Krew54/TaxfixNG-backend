@@ -6,6 +6,7 @@ from app.features.user.user_models import Users
 from jose import JWTError, jwt
 from app.core.security import oauth_schema, SECRET_KEY, ALGORITHM
 from typing import Any
+from starlette.concurrency import run_in_threadpool
 
 
 profile_router = APIRouter(
@@ -125,16 +126,19 @@ def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = De
 
 
 @profile_router.get("/my_profile", response_model=profile_schema.ProfileOut)
-def get_my_profile(current_user: Users = Depends(get_current_user), db: Session = Depends(get_db)) -> Any:
+async def get_my_profile(current_user: Users = Depends(get_current_user), db: Session = Depends(get_db)) -> Any:
     """Retrieve the profile for the currently authenticated user."""
-    profile = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+    def _get():
+        return db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+
+    profile = await run_in_threadpool(_get)
     if not profile:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
     return profile
 
 
 @profile_router.post("/", response_model=profile_schema.ProfileOut, status_code=status.HTTP_201_CREATED)
-def create_profile(
+async def create_profile(
     payload: profile_schema.ProfileBase,
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -143,7 +147,10 @@ def create_profile(
 
     If a profile already exists for the user, a 400 is returned.
     """
-    existing = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+    def _existing():
+        return db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+
+    existing = await run_in_threadpool(_existing)
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profile already exists")
 
@@ -165,6 +172,7 @@ def create_profile(
 
     tax_args = {k: (getattr(payload, k, 0) or 0) for k in tax_fields}
 
+    estimated_tax = 0
     if tax_args:
         estimated_tax = compute_tax_liability(**tax_args)
         if payload.period == profile_schema.Period.MONTHLY:
@@ -183,22 +191,28 @@ def create_profile(
 
     model_kwargs = model_kwargs | tax_args
 
-    new_profile = profile_model.UserProfile(**model_kwargs)
-    db.add(new_profile)
-    db.commit()
-    db.refresh(new_profile)
-    # attach estimated tax to the returned object (not persisted)
+    def _save():
+        new_profile = profile_model.UserProfile(**model_kwargs)
+        db.add(new_profile)
+        db.commit()
+        db.refresh(new_profile)
+        return new_profile
+
+    new_profile = await run_in_threadpool(_save)
     return new_profile
 
 
 @profile_router.patch("/", response_model=profile_schema.ProfileOut)
-def update_profile(
+async def update_profile(
     payload: profile_schema.ProfileBase,
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Any:
     """Update fields on the current user's profile. Only provided fields are changed."""
-    profile = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+    def _get():
+        return db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+
+    profile = await run_in_threadpool(_get)
     if not profile:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
 
@@ -206,26 +220,36 @@ def update_profile(
     for key, value in updates.items():
         setattr(profile, key, value)
 
-    db.add(profile)
-    db.commit()
-    db.refresh(profile)
+    def _save():
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+        return profile
+
+    profile = await run_in_threadpool(_save)
     return profile
 
 
 @profile_router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
-def delete_profile(current_user: Users = Depends(get_current_user), db: Session = Depends(get_db)) -> Response:
+async def delete_profile(current_user: Users = Depends(get_current_user), db: Session = Depends(get_db)) -> Response:
     """Delete the profile belonging to the current user."""
-    profile = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+    def _get():
+        return db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+
+    profile = await run_in_threadpool(_get)
     if not profile:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
 
-    db.delete(profile)
-    db.commit()
+    def _delete():
+        db.delete(profile)
+        db.commit()
+
+    await run_in_threadpool(_delete)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @profile_router.post("/estimate_tax")
-def estimate_tax(
+async def estimate_tax(
     employment_income: float = 0,
     business_income: float = 0,
     other_income: float = 0,
