@@ -231,22 +231,23 @@ async def delete_profile(current_user: Users = Depends(get_current_user), db: Se
 
 
 @profile_router.post("/estimate_tax")
-async def estimate_tax(
-    employment_income: float = 0,
-    business_income: float = 0,
-    other_income: float = 0,
-    chargeable_gains: float = 0,
-    losses_allowed: float = 0,
-    capital_allowances: float = 0,
-    national_housing_fund: float = 0,
-    National_health_insurance_scheme: float = 0,
-    pension_contribution: float = 0,
-    mortgage_interest: float = 0,
-    life_insurance_premium: float = 0,
-    house_rent: float = 0,
-    period: profile_schema.Period = profile_schema.Period.ANNUALLY
-) -> Any:
-    """Estimate tax liability based on provided financial inputs."""
+async def estimate_tax(forecast: profile_schema.Forecast) -> Any:
+    """Estimate tax liability based on provided `Forecast` request body."""
+    # extract values from request body (use 0 defaults if None)
+    employment_income = forecast.employment_income or 0
+    business_income = forecast.business_income or 0
+    other_income = forecast.other_income or 0
+    chargeable_gains = forecast.chargeable_gains or 0
+    losses_allowed = forecast.losses_allowed or 0
+    capital_allowances = forecast.capital_allowances or 0
+    national_housing_fund = forecast.national_housing_fund or 0
+    National_health_insurance_scheme = forecast.National_health_insurance_scheme or 0
+    pension_contribution = forecast.pension_contribution or 0
+    mortgage_interest = forecast.mortgage_interest or 0
+    life_insurance_premium = forecast.life_insurance_premium or 0
+    house_rent = forecast.house_rent or 0
+    period = forecast.period or profile_schema.Period.ANNUALLY
+
     # compute estimated tax after applying deductions (existing logic)
     estimated_tax = compute_tax_liability(
         employment_income=employment_income,
