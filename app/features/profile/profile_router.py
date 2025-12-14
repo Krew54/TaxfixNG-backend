@@ -333,10 +333,10 @@ def estimate_tax(
 
     # return structured forecast
     return {
+        "gross_tax_liability": prior_estimated_tax,
         "total_income": total_income,
-        "total_deduction": total_deduction,
-        "prior_estimated_tax": prior_estimated_tax,
-        "estimated_tax": estimated_tax,
+        "total_deductions": total_deduction,
+        "estimated_tax_due": estimated_tax,
     }
 
 
