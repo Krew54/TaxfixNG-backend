@@ -82,11 +82,6 @@ class Forecast(BaseModel):
 	house_rent: Optional[float] = 0.0
 	period: Optional[Period] = Period.ANNUALLY
 
-	# total_income: Optional[float] = 0.0
-	# total_deduction: Optional[float] = 0.0
-	# prior_estimated_tax: Optional[float] = 0.0
-	# estimated_tax: Optional[float] = 0.0
-
 	class Config:
 		populate_by_name = True
 		from_attributes = True
