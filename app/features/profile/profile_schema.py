@@ -40,6 +40,7 @@ class ProfileBase(BaseModel):
 	life_insurance_premium: Optional[float] = 0.0
 	house_rent: Optional[float] = 0.0
 	period: Optional[Period] = Period.ANNUALLY
+	estimated_tax: Optional[float] = None
 
 	class Config:
 		populate_by_name = True
