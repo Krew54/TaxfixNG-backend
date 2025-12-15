@@ -55,7 +55,7 @@ def upload_file_to_s3(file: UploadFile, key: str) -> str:
     return f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}"
 
 
-doc_router = APIRouter(prefix="api/documents", tags=["Document Management"])
+doc_router = APIRouter(prefix="/api/documents", tags=["Document Management"])
 
 
 @doc_router.post("/upload", response_model=doc_schemas.DocumentOut, status_code=status.HTTP_201_CREATED)
