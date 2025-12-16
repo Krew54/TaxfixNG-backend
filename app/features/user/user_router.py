@@ -270,3 +270,26 @@ async def update_password_with_otp(req: user_schema.PasswordUpdateWithOTP, db: S
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not update password")
+
+
+@user_router.post("/change-password", status_code=status.HTTP_200_OK)
+async def change_password(req: user_schema.ChangePassword, db: Session = Depends(get_db), current_user: Users = Depends(get_current_user)) -> dict:
+    """
+    Change an authenticated user's password by validating their old password.
+
+    Body:
+      - old_password: str
+      - new_password: str
+    """
+    # Verify old password
+    if not utils.verify_password(db=db, email=current_user.email, password=req.old_password, model=user_models.Users):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Old password is incorrect")
+
+    try:
+        current_user.password = req.new_password
+        db.add(current_user)
+        db.commit()
+        return {"message": "Password changed successfully"}
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not change password")
