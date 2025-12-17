@@ -41,7 +41,7 @@ class DocumentUpdate(BaseModel):
 class DocumentOut(DocumentBase):
     id: int
     user_email: str
-    file_url: str
+    file_url: Optional[str]
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
     relevant_tax_year: Optional[int] = None

@@ -7,10 +7,12 @@ from app.core.config import Base
 
 class DocumentCategory(enum.Enum):
     income = "income"
+    other_incomes = "other_incomes"
+    operating_expenses = "operating_expenses"
     other_expenses = "other_expenses"
     life_insurance = "life_insurance"
     house_rent = "house_rent"
-    NHF = "NHF"
+    Statutory_deductions = "Statutory_deductions"
 
 
 class Document(Base):
