@@ -12,7 +12,7 @@ class DocumentCategory(enum.Enum):
     other_expenses = "other_expenses"
     life_insurance = "life_insurance"
     house_rent = "house_rent"
-    Statutory_deductions = "Statutory_deductions"
+    statutory_deductions = "statutory_deductions"
 
 
 class Document(Base):
