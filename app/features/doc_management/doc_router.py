@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 import boto3
+from typing import Optional
 
 from app.core.database import get_db
 from app.core.config import get_settings
@@ -64,7 +65,7 @@ async def upload_document(
     document_name: str = Form(...),
     amount: float = Form(...),
     relevant_tax_year: int | None = Form(None),
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
