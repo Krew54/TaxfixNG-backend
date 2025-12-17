@@ -70,7 +70,7 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     # validate bucket/config
-    if file:
+    if file is not None:
         if not all([AWS_ACCESS_KEY, AWS_SECRET_KEY, S3_BUCKET, AWS_REGION]):
             raise HTTPException(status_code=500, detail="AWS S3 configuration is missing on server")
 
