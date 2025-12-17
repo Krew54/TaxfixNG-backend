@@ -23,7 +23,7 @@ class Document(Base):
     category = Column(Enum(DocumentCategory, name="document_category"), nullable=False)
     amount = Column(Float, nullable=False)
     document_name = Column(String, nullable=False)
-    file_url = Column(String, nullable=False)
+    file_url = Column(String, nullable=True)
     relevant_tax_year = Column(Integer, nullable=True, index=True)
 
     created_at = Column(sa.TIMESTAMP(timezone=True), server_default=text('now()'))

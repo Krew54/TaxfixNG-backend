@@ -70,14 +70,17 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     # validate bucket/config
-    if not all([AWS_ACCESS_KEY, AWS_SECRET_KEY, S3_BUCKET, AWS_REGION]):
-        raise HTTPException(status_code=500, detail="AWS S3 configuration is missing on server")
+    if file:
+        if not all([AWS_ACCESS_KEY, AWS_SECRET_KEY, S3_BUCKET, AWS_REGION]):
+            raise HTTPException(status_code=500, detail="AWS S3 configuration is missing on server")
 
-    # generate object key
-    object_key = f"documents/{current_user.email}/{uuid.uuid4().hex}_{document_name}"
+        # generate object key
+        object_key = f"documents/{current_user.email}/{uuid.uuid4().hex}_{document_name}"
 
-    # upload in threadpool (boto3 is blocking) and get returned URL
-    file_url = await run_in_threadpool(upload_file_to_s3, file, object_key)
+        # upload in threadpool (boto3 is blocking) and get returned URL
+        file_url = await run_in_threadpool(upload_file_to_s3, file, object_key)
+    else:
+        file_url = None
 
     def _create():
         doc = doc_models.Document(
