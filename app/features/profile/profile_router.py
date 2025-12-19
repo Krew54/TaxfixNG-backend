@@ -254,7 +254,7 @@ async def update_profile(
 
     # Update profile attribute for expected tax due
     try:
-        setattr(profile, "expected_tax_due", estimated_tax)
+        setattr(profile, "expected_tax", estimated_tax)
     except Exception:
         # If model doesn't have this attribute, silently skip setting it
         pass
