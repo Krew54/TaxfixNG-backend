@@ -202,6 +202,63 @@ async def update_profile(
     for key, value in updates.items():
         setattr(profile, key, value)
 
+    # Recompute expected tax due when numeric tax-related fields or period change
+    numeric_fields = [
+        "employment_income",
+        "business_income",
+        "other_income",
+        "chargeable_gains",
+        "losses_allowed",
+        "capital_allowances",
+        "national_housing_fund",
+        "National_health_insurance_scheme",
+        "pension_contribution",
+        "mortgage_interest",
+        "life_insurance_premium",
+        "house_rent",
+    ]
+
+    # Build args from updates (if provided) otherwise fall back to existing profile values
+    tax_args = {}
+    for k in numeric_fields:
+        if k in updates:
+            tax_args[k] = updates.get(k) or 0
+        else:
+            tax_args[k] = getattr(profile, k, 0) or 0
+
+    # Determine period (updates take precedence)
+    period_val = updates.get("period") if "period" in updates else getattr(profile, "period", profile_schema.Period.ANNUALLY)
+
+    try:
+        estimated_tax = compute_tax_liability(
+            employment_income=tax_args["employment_income"],
+            business_income=tax_args["business_income"],
+            other_income=tax_args["other_income"],
+            chargeable_gains=tax_args["chargeable_gains"],
+            losses_allowed=tax_args["losses_allowed"],
+            capital_allowances=tax_args["capital_allowances"],
+            national_housing_fund=tax_args["national_housing_fund"],
+            National_health_insurance_scheme=tax_args["National_health_insurance_scheme"],
+            pension_contribution=tax_args["pension_contribution"],
+            mortgage_interest=tax_args["mortgage_interest"],
+            life_insurance_premium=tax_args["life_insurance_premium"],
+            house_rent=tax_args["house_rent"],
+            period=period_val,
+        )
+    except Exception:
+        estimated_tax = 0
+
+    # If period is monthly, annualize to keep stored expected tax consistent
+    if period_val == profile_schema.Period.MONTHLY:
+        estimated_tax = estimated_tax * 12
+
+    # Update profile attribute for expected tax due
+    try:
+        setattr(profile, "expected_tax_due", estimated_tax)
+    except Exception:
+        # If model doesn't have this attribute, silently skip setting it
+        pass
+
     def _save():
         db.add(profile)
         db.commit()
