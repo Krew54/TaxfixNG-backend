@@ -252,9 +252,9 @@ async def update_profile(
     if period_val == profile_schema.Period.MONTHLY:
         estimated_tax = estimated_tax * 12
 
-    # Update profile attribute for expected tax due
+    # Update profile attribute for estimated tax
     try:
-        setattr(profile, "expected_tax", estimated_tax)
+        setattr(profile, "estimated_tax", estimated_tax)
     except Exception:
         # If model doesn't have this attribute, silently skip setting it
         pass
