@@ -42,12 +42,15 @@ def compute_tax_liability(
         capital_allowances
     )
 
+    if period == profile_schema.Period.MONTHLY:
+        total_income = total_income * 12
+
     if total_income < 0:
         total_income = 0
 
     # 2. Eligible Deductions (Section 30)
     if period == profile_schema.Period.MONTHLY:
-        rent_relief = min(0.20 * house_rent, 500000/12)
+        rent_relief = min(0.20 * house_rent/12, 500000/12)
     else:
         rent_relief = min(0.20 * house_rent, 500000)
 
@@ -59,6 +62,9 @@ def compute_tax_liability(
         life_insurance_premium +
         rent_relief
     )
+
+    if period == profile_schema.Period.MONTHLY:
+        eligible_deductions = eligible_deductions * 12
 
     # 3. Chargeable Income
     chargeable_income = max(total_income - eligible_deductions, 0)
@@ -157,8 +163,6 @@ async def create_profile(
     estimated_tax = 0
     if tax_args:
         estimated_tax = compute_tax_liability(**tax_args)
-        if payload.period == profile_schema.Period.MONTHLY:
-            estimated_tax = estimated_tax * 12
     
     # Build model kwargs only with fields that exist on the UserProfile model
     model_kwargs = {}
@@ -248,10 +252,6 @@ async def update_profile(
     except Exception:
         estimated_tax = 0
 
-    # If period is monthly, annualize to keep stored expected tax consistent
-    if period_val == profile_schema.Period.MONTHLY:
-        estimated_tax = estimated_tax * 12
-
     # Update profile attribute for estimated tax
     try:
         setattr(profile, "estimated_tax", estimated_tax)
@@ -336,7 +336,7 @@ async def estimate_tax(forecast: profile_schema.Forecast) -> Any:
 
     # 2. Total deductions (eligible deductions)
     if period == profile_schema.Period.MONTHLY:
-        rent_relief = min(0.20 * house_rent, 500000/12)
+        rent_relief = min(0.20 * house_rent/12, 500000/12)
     else:
         rent_relief = min(0.20 * house_rent, 500000)
     total_deduction = (
@@ -347,6 +347,10 @@ async def estimate_tax(forecast: profile_schema.Forecast) -> Any:
         + life_insurance_premium
         + rent_relief
     )
+
+    if period == profile_schema.Period.MONTHLY:
+        total_deduction = total_deduction * 12
+        total_income = total_income * 12
 
     # 3. Helper to compute progressive tax on a single amount (matches compute_tax_liability bands)
     def progressive_tax(amount: float) -> float:
@@ -389,17 +393,11 @@ async def estimate_tax(forecast: profile_schema.Forecast) -> Any:
     # 4. prior_estimated_tax: tax calculated strictly on total_income (no eligible deductions)
     prior_estimated_tax = progressive_tax(total_income)
 
-    # 5. estimated_tax already computed by compute_tax_liability uses deductions; keep that as final
-    # Apply the same period scaling as previous behavior
-    if period == profile_schema.Period.MONTHLY:
-        estimated_tax = estimated_tax * 12
-        prior_estimated_tax = prior_estimated_tax * 12
-
     # return structured forecast
     return {
         "gross_tax_liability": prior_estimated_tax,
-        "total_income": total_income if profile_schema.Period.ANNUALLY else total_income * 12,
-        "total_deductions": total_deduction if profile_schema.Period.ANNUALLY else total_deduction * 12,
+        "total_income": total_income,
+        "total_deductions": total_deduction,
         "estimated_tax_due": estimated_tax,
     }
 
