@@ -211,25 +211,6 @@ async def reset_password_request_authenticated(
 
     return {"message": "Password reset OTP sent to your email."}
 
-# @user_router.put("/reset-password", status_code=status.HTTP_200_OK)
-# async def reset_user_password(reqBody: user_schema.ResetPassword, db: Session = Depends(get_db)) -> dict:
-#     """
-#     Reset the user's password using the provided reset token and new password.
-
-#     Args:
-#         reqBody (schema.ResetPassword): The request body containing the reset token and new password.
-#         db (Session): SQLAlchemy database session dependency.
-
-#     Returns:
-#         dict: Result of the password reset operation.
-#     """
-#     return utils.reset_password(
-#         db=db,
-#         model=user_models.Users,
-#         kwargs=reqBody.dict()
-#     )
-
-
 @user_router.post("/update-password-with-otp", status_code=status.HTTP_200_OK)
 async def update_password_with_otp(req: user_schema.PasswordUpdateWithOTP, db: Session = Depends(get_db)) -> dict:
     """

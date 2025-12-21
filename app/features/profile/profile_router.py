@@ -398,8 +398,8 @@ async def estimate_tax(forecast: profile_schema.Forecast) -> Any:
     # return structured forecast
     return {
         "gross_tax_liability": prior_estimated_tax,
-        "total_income": total_income,
-        "total_deductions": total_deduction,
+        "total_income": total_income if profile_schema.Period.ANNUALLY else total_income * 12,
+        "total_deductions": total_deduction if profile_schema.Period.ANNUALLY else total_deduction * 12,
         "estimated_tax_due": estimated_tax,
     }
 
