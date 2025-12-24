@@ -3,6 +3,7 @@ import uvicorn
 from app.features.user.user_router import user_router
 from app.features.profile.profile_router import profile_router
 from app.features.doc_management.doc_router import doc_router
+from fastapi.responses import RedirectResponse
 # from app.features.tax_article.tax_router import agent_router
 
 app = FastAPI(
@@ -18,6 +19,10 @@ app = FastAPI(
         "Phone":"08033796049",
     }
 )
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/docs")
 
 
 app.include_router(user_router)
