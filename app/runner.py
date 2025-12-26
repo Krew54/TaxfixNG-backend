@@ -29,7 +29,15 @@ app.add_middleware(
         "https://admin.taxfixng.com",
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=[
+    "GET",      # Read data
+    "POST",     # Create data
+    "PUT",      # Full update
+    "PATCH",    # Partial update
+    "DELETE",   # Delete data
+    "OPTIONS",  # CORS preflight (IMPORTANT)
+    "HEAD",     # Metadata-only requests
+    ],
     allow_headers=["Authorization", "Content-Type"],
 )
 
