@@ -4,6 +4,7 @@ from app.features.user.user_router import user_router
 from app.features.profile.profile_router import profile_router
 from app.features.doc_management.doc_router import doc_router
 from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 # from app.features.tax_article.tax_router import agent_router
 
 app = FastAPI(
@@ -18,6 +19,18 @@ app = FastAPI(
         "email": "info@taxfixng.com",
         "Phone":"08033796049",
     }
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://www.taxfixng.com",
+        "http://localhost:8000",
+        "https://admin.taxfixng.com",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 @app.get("/", include_in_schema=False)
