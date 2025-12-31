@@ -35,7 +35,8 @@ class ProfileBase(BaseModel):
 	# deduction fields (also available separately on model)
 	national_housing_fund: Optional[float] = 0.0
 	National_health_insurance_scheme: Optional[float] = 0.0
-	pension_contribution: Optional[float] = 0.0
+	pension_contribution: Optional[float] = 0.0,
+	voluntary_pension_contribution: Optional[float] = 0.0
 	mortgage_interest: Optional[float] = 0.0
 	life_insurance_premium: Optional[float] = 0.0
 	house_rent: Optional[float] = 0.0
@@ -78,6 +79,7 @@ class Forecast(BaseModel):
 	national_housing_fund: Optional[float] = 0.0
 	National_health_insurance_scheme: Optional[float] = 0.0
 	pension_contribution: Optional[float] = 0.0
+	voluntary_pension_contribution: Optional[float] = 0.0
 	mortgage_interest: Optional[float] = 0.0
 	life_insurance_premium: Optional[float] = 0.0
 	house_rent: Optional[float] = 0.0

@@ -23,6 +23,7 @@ def compute_tax_liability(
     national_housing_fund: float = 0,
     National_health_insurance_scheme: float = 0,
     pension_contribution: float = 0,
+    voluntary_pension_contribution: float = 0,
     mortgage_interest: float = 0,
     life_insurance_premium: float = 0,
     house_rent: float = 0,
@@ -58,6 +59,7 @@ def compute_tax_liability(
         national_housing_fund +
         National_health_insurance_scheme +
         pension_contribution +
+        voluntary_pension_contribution +
         mortgage_interest +
         life_insurance_premium +
         rent_relief
@@ -153,6 +155,7 @@ async def create_profile(
         "national_housing_fund",
         "National_health_insurance_scheme",
         "pension_contribution",
+        "voluntary_pension_contribution",
         "mortgage_interest",
         "life_insurance_premium",
         "house_rent",
@@ -217,6 +220,7 @@ async def update_profile(
         "national_housing_fund",
         "National_health_insurance_scheme",
         "pension_contribution",
+        "voluntary_pension_contribution",
         "mortgage_interest",
         "life_insurance_premium",
         "house_rent",
@@ -244,6 +248,7 @@ async def update_profile(
             national_housing_fund=tax_args["national_housing_fund"],
             National_health_insurance_scheme=tax_args["National_health_insurance_scheme"],
             pension_contribution=tax_args["pension_contribution"],
+            voluntary_pension_contribution=tax_args["voluntary_pension_contribution"],
             mortgage_interest=tax_args["mortgage_interest"],
             life_insurance_premium=tax_args["life_insurance_premium"],
             house_rent=tax_args["house_rent"],
@@ -300,6 +305,7 @@ async def estimate_tax(forecast: profile_schema.Forecast) -> Any:
     national_housing_fund = forecast.national_housing_fund or 0
     National_health_insurance_scheme = forecast.National_health_insurance_scheme or 0
     pension_contribution = forecast.pension_contribution or 0
+    voluntary_pension_contribution = forecast.voluntary_pension_contribution or 0
     mortgage_interest = forecast.mortgage_interest or 0
     life_insurance_premium = forecast.life_insurance_premium or 0
     house_rent = forecast.house_rent or 0
@@ -316,6 +322,7 @@ async def estimate_tax(forecast: profile_schema.Forecast) -> Any:
         national_housing_fund=national_housing_fund,
         National_health_insurance_scheme=National_health_insurance_scheme,
         pension_contribution=pension_contribution,
+        voluntary_pension_contribution=voluntary_pension_contribution,
         mortgage_interest=mortgage_interest,
         life_insurance_premium=life_insurance_premium,
         house_rent=house_rent,
@@ -343,6 +350,7 @@ async def estimate_tax(forecast: profile_schema.Forecast) -> Any:
         national_housing_fund
         + National_health_insurance_scheme
         + pension_contribution
+        + voluntary_pension_contribution
         + mortgage_interest
         + life_insurance_premium
         + rent_relief
