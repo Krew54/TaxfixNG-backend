@@ -191,7 +191,7 @@ async def create_profile(
     return new_profile
 
 
-@profile_router.patch("/", response_model=profile_schema.ProfileOut)
+@profile_router.patch("/", dependencies=[Depends(get_current_user)], response_model=profile_schema.ProfileOut)
 async def update_profile(
     payload: profile_schema.ProfileBase,
     current_user: Users = Depends(get_current_user),
