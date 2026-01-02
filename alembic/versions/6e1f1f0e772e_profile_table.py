@@ -35,6 +35,7 @@ def upgrade() -> None:
     sa.Column('other_income', sa.Float(), nullable=True),
     sa.Column('chargeable_gains', sa.Float(), nullable=True),
     sa.Column('pension_contribution', sa.Float(), nullable=True),
+    sa.Column('voluntary_pension_contribution', sa.Float(), nullable=True),
     sa.Column('national_housing_fund', sa.Float(), nullable=True),
     sa.Column('National_health_insurance_scheme', sa.Float(), nullable=True),
     sa.Column('life_insurance_premium', sa.Float(), nullable=True),

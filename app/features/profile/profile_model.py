@@ -82,6 +82,7 @@ class UserProfile(ResourceBase):
     other_income = Column(sql.Float, nullable=True)
     chargeable_gains = Column(sql.Float, nullable=True)
     pension_contribution = Column(sql.Float, nullable=True)
+    voluntary_pension_contribution = Column(sql.Float, nullable=True)
     national_housing_fund = Column(sql.Float, nullable=True)
     National_health_insurance_scheme = Column(sql.Float, nullable=True)
     life_insurance_premium = Column(sql.Float, nullable=True)
