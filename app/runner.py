@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 import uvicorn
 from app.features.user.user_router import user_router
 from app.features.profile.profile_router import profile_router
@@ -25,21 +25,20 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://www.taxfixng.com",
-        "http://localhost:8000",
         "https://admin.taxfixng.com",
+        "http://localhost:3000",
+        "http://localhost:8000",
     ],
     allow_credentials=True,
-    allow_methods=[
-    "GET",      # Read data
-    "POST",     # Create data
-    "PUT",      # Full update
-    "PATCH",    # Partial update
-    "DELETE",   # Delete data
-    "OPTIONS",  # CORS preflight (IMPORTANT)
-    "HEAD",     # Metadata-only requests
-    ],
+    allow_methods=["*"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+@app.middleware("http")
+async def add_vary_origin(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Vary"] = "Origin"
+    return response
 
 @app.get("/", include_in_schema=False)
 def root():
