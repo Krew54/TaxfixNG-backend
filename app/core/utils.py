@@ -26,7 +26,7 @@ def send_email(subject: str, message: str, recipient: str):
       'Messages': [
         {
           "From": {
-            "Email": "groomicatest@gmail.com",
+            "Email": "ops.smartapps@gmail.com",
             "Name": "TaxFix NG"
           },
           "To": [
