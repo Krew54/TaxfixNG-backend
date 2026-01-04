@@ -153,7 +153,7 @@ async def start_scheduler():
     if not scheduler.running:
         scheduler.start()
 
-@blog_router.get("/tax/weekly-post")
+@blog_router.get("/weekly-post")
 def get_weekly_tax_post():
     if not LATEST_TAX_POST["content"]:
         raise HTTPException(status_code=404, detail="No post available yet")
