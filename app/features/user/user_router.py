@@ -274,3 +274,24 @@ async def change_password(req: user_schema.ChangePassword, db: Session = Depends
     except Exception:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not change password")
+
+
+@user_router.delete("/delete-account", status_code=status.HTTP_200_OK)
+async def delete_app(db: Session = Depends(get_db), current_user: Users = Depends(get_current_user)) -> dict:
+    """
+    Delete the authenticated user's account and all associated data.
+
+    This endpoint requires authentication. It will permanently delete the user account
+    and cannot be undone.
+
+    Returns:
+        dict: Success message indicating account deletion.
+    """
+    try:
+        # Delete the user account
+        db.delete(current_user)
+        db.commit()
+        return {"message": "Account deleted successfully"}
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not delete account")
