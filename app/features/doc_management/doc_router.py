@@ -2,14 +2,14 @@ import os
 import uuid
 from typing import List
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
-import boto3
 from typing import Optional
 
 from app.core.database import get_db
 from app.core.config import get_settings
+from app.core.storage import LocalStorageManager
 from app.features.user.user_models import Users
 from app.features.doc_management import doc_models, doc_schemas
 from app.core.utils import get_current_user
@@ -17,43 +17,8 @@ from app.core.utils import get_current_user
 
 settings = get_settings()
 
-# Load AWS S3 configuration from env
-AWS_ACCESS_KEY = os.environ.get("AWS_ACCESS_KEY_ID")
-AWS_SECRET_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = os.environ.get("AWS_REGION") or "eu-north-1"
-S3_BUCKET = os.environ.get("AWS_S3_BUCKET")
-
-
-def get_s3_client():
-    return boto3.client(
-        "s3",
-        region_name=AWS_REGION,
-        aws_access_key_id=AWS_ACCESS_KEY,
-        aws_secret_access_key=AWS_SECRET_KEY,
-    )
-
-
-def generate_signed_url(key: str, expires: int = 3600) -> str:
-    client = get_s3_client()
-    return client.generate_presigned_url(
-        "get_object",
-        Params={"Bucket": S3_BUCKET, "Key": key},
-        ExpiresIn=expires,
-    )
-
-
-def upload_file_to_s3(file: UploadFile, key: str) -> str:
-    client = get_s3_client()
-    # Upload with private ACL
-    client.upload_fileobj(
-        file.file,
-        S3_BUCKET,
-        key,
-        ExtraArgs={"ACL": "private", "ContentType": file.content_type},
-    )
-
-    # Construct S3 URL
-    return f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}"
+# Initialize local storage manager
+storage_manager = LocalStorageManager()
 
 
 doc_router = APIRouter(prefix="/api/documents", tags=["Document Management"])
@@ -69,18 +34,31 @@ async def upload_document(
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # validate bucket/config
+    # Save file if provided
+    file_url = None
     if file is not None:
-        if not all([AWS_ACCESS_KEY, AWS_SECRET_KEY, S3_BUCKET, AWS_REGION]):
-            raise HTTPException(status_code=500, detail="AWS S3 configuration is missing on server")
-
-        # generate object key
-        object_key = f"documents/{current_user.email}/{uuid.uuid4().hex}_{document_name}"
-
-        # upload in threadpool (boto3 is blocking) and get returned URL
-        file_url = await run_in_threadpool(upload_file_to_s3, file, object_key)
-    else:
-        file_url = None
+        try:
+            # Read file content
+            file_content = await file.read()
+            
+            # Generate unique filename
+            unique_filename = f"{uuid.uuid4().hex}_{document_name}"
+            
+            # Save to local storage in thread pool
+            relative_path = await run_in_threadpool(
+                storage_manager.save_file,
+                file_content,
+                current_user.email,
+                unique_filename
+            )
+            
+            # Generate public URL
+            file_url = storage_manager.get_public_url(relative_path)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to upload file: {str(e)}"
+            )
 
     def _create():
         doc = doc_models.Document(
@@ -145,11 +123,32 @@ async def update_document(
     if not doc or doc.user_email != current_user.email:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # If file provided, upload new file
+    # If file provided, upload new file and delete old one
     if file is not None:
-        object_key = f"documents/{current_user.email}/{uuid.uuid4().hex}_{document_name}"
-        file_url = await run_in_threadpool(upload_file_to_s3, file, object_key)
-        doc.file_url = file_url
+        try:
+            # Delete old file if exists
+            if doc.file_url:
+                # Extract relative path from public URL
+                if doc.file_url.startswith("/api/documents/files/"):
+                    relative_path = doc.file_url.replace("/api/documents/files/", "")
+                    await run_in_threadpool(storage_manager.delete_file, relative_path)
+            
+            # Read and save new file
+            file_content = await file.read()
+            unique_filename = f"{uuid.uuid4().hex}_{document_name or file.filename}"
+            relative_path = await run_in_threadpool(
+                storage_manager.save_file,
+                file_content,
+                current_user.email,
+                unique_filename
+            )
+            
+            doc.file_url = storage_manager.get_public_url(relative_path)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to update file: {str(e)}"
+            )
 
     if category is not None:
         doc.category = doc_models.DocumentCategory(category.value)
@@ -179,18 +178,16 @@ async def delete_document(doc_id: int, current_user: Users = Depends(get_current
     if not doc or doc.user_email != current_user.email:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # attempt to delete from S3
-    try:
-        # file_url format: https://{bucket}.s3.{region}.amazonaws.com/{key}
-        prefix = f"https://{S3_BUCKET}.s3"
-        key = None
-        if doc.file_url.startswith(prefix):
-            key = doc.file_url.split('/', 3)[-1]
-        if key:
-            client = get_s3_client()
-            client.delete_object(Bucket=S3_BUCKET, Key=key)
-    except Exception:
-        pass
+    # Delete file from local storage
+    if doc.file_url:
+        try:
+            # Extract relative path from public URL
+            if doc.file_url.startswith("/api/documents/files/"):
+                relative_path = doc.file_url.replace("/api/documents/files/", "")
+                await run_in_threadpool(storage_manager.delete_file, relative_path)
+        except Exception:
+            # Continue with database deletion even if file deletion fails
+            pass
 
     def _delete():
         db.delete(doc)
@@ -198,3 +195,47 @@ async def delete_document(doc_id: int, current_user: Users = Depends(get_current
 
     await run_in_threadpool(_delete)
     return JSONResponse(status_code=status.HTTP_204_NO_CONTENT, content={})
+
+
+@doc_router.get("/files/{user_email}/{file_path:path}")
+async def download_document(
+    user_email: str,
+    file_path: str,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Download/serve a document file
+    
+    Security: Only allows users to download their own files
+    """
+    # Security check: ensure user can only access their own files
+    if current_user.email != user_email:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Reconstruct relative path
+    relative_path = f"{user_email}/{file_path}"
+    
+    # Get file path with security checks
+    full_file_path = await run_in_threadpool(storage_manager.get_file_path, relative_path)
+    
+    if not full_file_path:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Verify file is associated with a document
+    def _verify_doc():
+        return db.query(doc_models.Document).filter(
+            doc_models.Document.user_email == current_user.email,
+            doc_models.Document.file_url == f"/api/documents/files/{relative_path}"
+        ).first()
+    
+    doc = await run_in_threadpool(_verify_doc)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Return file
+    return FileResponse(
+        path=full_file_path,
+        filename=doc.document_name,
+        media_type="application/octet-stream"
+    )
