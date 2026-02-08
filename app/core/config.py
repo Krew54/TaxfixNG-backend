@@ -34,6 +34,7 @@ class Settings:
     jwt_access_token_expires=os.environ.get("JWT_ACCESS_TOKEN_EXPIRES", 30)
     OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY")
     DEEPSEEK_API_KEY: str = os.environ.get("DEEPSEEK_API_KEY")
+    storage_path: str = os.environ.get("STORAGE_PATH", "/app/storage")
    
 
 
