@@ -24,26 +24,6 @@ services:
       - taxfix_network
     restart: unless-stopped
 
-  # Redis Cache & Message Broker
-  redis:
-    image: redis:7-alpine
-    container_name: taxfix_redis
-    ports:
-      - "6379:6379"
-    environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - taxfix_network
-    restart: unless-stopped
-
   # FastAPI Application
   app:
     build:
@@ -60,15 +40,6 @@ services:
       
       # File Storage Configuration
       STORAGE_PATH: /app/storage
-      
-      # Redis Configuration
-      # REDIS_HOST: redis
-      # REDIS_PORT: ${REDIS_PORT:-6379}
-      # REDIS_DB: ${REDIS_DB:-0}
-      
-      # Celery Configuration
-      # CELERY_BROKER_URL: redis://redis:6379/1
-      # CELERY_RESULT_BACKEND: redis://redis:6379/1
       
       # Application Configuration
       URL_PORT: ${URL_PORT:-8000}
@@ -103,57 +74,9 @@ services:
     restart: unless-stopped
     command: uvicorn app.runner:app --host 0.0.0.0 --port 8000 --reload
 
-  # Celery Worker (optional - can be excluded if not needed)
-  # celery_worker:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: taxfix_celery_worker
-  #   environment:
-  #     # Database Configuration
-  #     DB_HOST: postgres
-  #     DB_PORT: ${DB_PORT:-5432}
-  #     DB_USERNAME: ${DB_USERNAME:-postgres}
-  #     DB_PASSWORD: ${DB_PASSWORD:-postgres}
-  #     DB_NAME: ${DB_NAME:-taxfix}
-      
-  #     # File Storage Configuration
-  #     STORAGE_PATH: /app/storage
-      
-  #     # Redis Configuration
-  #     REDIS_HOST: redis
-  #     REDIS_PORT: ${REDIS_PORT:-6379}
-  #     REDIS_DB: ${REDIS_DB:-0}
-      
-  #     # Celery Configuration
-  #     CELERY_BROKER_URL: redis://redis:6379/1
-  #     CELERY_RESULT_BACKEND: redis://redis:6379/1
-      
-  #     # External Services
-  #     MAIL_JET_API_KEY: ${MAIL_JET_API_KEY}
-  #     MAIL_JET_API_SECRET_KEY: ${MAIL_JET_API_SECRET_KEY}
-  #     OPENAI_API_KEY: ${OPENAI_API_KEY}
-  #     DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
-      
-  #   volumes:
-  #     - ./app:/app/app
-  #     - ./alembic:/app/alembic
-  #     - storage_volume:/app/storage
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   networks:
-  #     - taxfix_network
-  #   restart: unless-stopped
-  #   command: celery -A app.worker worker --loglevel=info
-
 volumes:
   postgres_data:
     driver: local
-  # redis_data:
-  #   driver: local
   storage_volume:
     driver: local
 
