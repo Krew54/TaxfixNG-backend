@@ -3,7 +3,7 @@ version: '3.9'
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: taxfix_postgres
     environment:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
@@ -11,7 +11,7 @@ services:
       POSTGRES_DB: ${DB_NAME:-taxfix}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8"
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
@@ -23,6 +23,11 @@ services:
     networks:
       - taxfix_network
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # FastAPI Application
   app:
@@ -55,7 +60,7 @@ services:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       
       # CORS Origins
-      ALLOWED_ORIGINS: "https://www.taxfixng.com,https://admin.taxfixng.com,http://localhost:3000,http://localhost:8000"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://www.taxfixng.com,https://admin.taxfixng.com,http://localhost:3000,http://localhost:8000}
       
     ports:
       - "${URL_PORT:-8000}:8000"
@@ -67,12 +72,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     networks:
       - taxfix_network
     restart: unless-stopped
-    command: uvicorn app.runner:app --host 0.0.0.0 --port 8000 --reload
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: uvicorn app.runner:app --host 0.0.0.0 --port 8000 --workers 4
 
 volumes:
   postgres_data:
